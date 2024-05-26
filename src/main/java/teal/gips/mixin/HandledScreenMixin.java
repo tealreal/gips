@@ -63,10 +63,10 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
     }
 
     @Inject(
-            method = "close",
+            method = "onClose",
             at = @At("TAIL")
     )
-    public void close(CallbackInfo ci) {
+    public void onClose(CallbackInfo ci) {
         writeToFile(null);
     }
 
@@ -84,7 +84,7 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
                 String date = dateFormat.format(new Date());
                 for(int i=0; i < splitBETs.size(); i++) {
                     // Order of "best" name: Name of container -> "Inventory" -> Name of obfuscated class (though when modding it shows the deobfuscated class)
-                    String bestName = (date + String.format("-%s-", i) + (title.isEmpty() ? inventory.isEmpty() ? this.getClass().getSimpleName() : inventory : title)).replaceAll("[^A-Za-z0-9\\._-]+","_");
+                    String bestName = (date + String.format("-%s-", i) + (title.isEmpty() ? inventory.isEmpty() ? this.getClass().getSimpleName() : inventory : title)).replaceAll("[^A-Za-z0-9\\._-]+", "_");
                     FileWriter fileWriter = new FileWriter(String.format("./gips/%s.nbt", bestName.substring(0, Math.min(bestName.length(), 252))));
                     fileWriter.write(splitBETs.get(i).asString());
                     fileWriter.close();

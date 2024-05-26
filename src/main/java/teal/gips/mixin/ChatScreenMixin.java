@@ -26,5 +26,4 @@ public abstract class ChatScreenMixin extends Screen {
     private void initMixin(CallbackInfo ci) {
         chatField.setMaxLength(Integer.MAX_VALUE);
     }
-
 }

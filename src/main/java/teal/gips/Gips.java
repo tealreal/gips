@@ -48,7 +48,6 @@ import java.util.function.Predicate;
 public class Gips implements ClientModInitializer {
 
     public static final MinecraftClient minecraft = MinecraftClient.getInstance();
-    public static final NbtCompound EMPTY = new NbtCompound();
     public static final KeyBinding GetNBTKeybind = new KeyBinding("teal.gips.key.copynbt", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "teal.gips");
     public static final KeyBinding GetNameKeybind = new KeyBinding("teal.gips.key.copyname", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Y, "teal.gips");
     public static final File gipsFolder = new File("./gips/");
