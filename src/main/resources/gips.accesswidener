@@ -1,2 +1,2 @@
 accessWidener   v1      named
-accessible method net/minecraft/client/MinecraftClient addBlockEntityNbt (Lnet/minecraft/item/ItemStack;Lnet/minecraft/block/entity/BlockEntity;)V
+accessible method net/minecraft/client/MinecraftClient addBlockEntityNbt (Lnet/minecraft/item/ItemStack;Lnet/minecraft/block/entity/BlockEntity;)Lnet/minecraft/item/ItemStack;

@@ -8,7 +8,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ChatScreen.class)
@@ -28,14 +27,4 @@ public abstract class ChatScreenMixin extends Screen {
         chatField.setMaxLength(Integer.MAX_VALUE);
     }
 
-    @Redirect(
-            method = "sendMessage",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/client/gui/screen/ChatScreen;normalize(Ljava/lang/String;)Ljava/lang/String;"
-            )
-    )
-    public String sendMessage(ChatScreen self, String chatText) {
-        return chatText;
-    }
 }

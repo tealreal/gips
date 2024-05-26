@@ -7,9 +7,8 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v1.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.block.entity.BlockEntity;
@@ -30,6 +29,7 @@ import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtHelper;
 import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
 import net.minecraft.predicate.NbtPredicate;
+import net.minecraft.text.LiteralText;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -48,6 +48,7 @@ import java.util.function.Predicate;
 public class Gips implements ClientModInitializer {
 
     public static final MinecraftClient minecraft = MinecraftClient.getInstance();
+    public static final NbtCompound EMPTY = new NbtCompound();
     public static final KeyBinding GetNBTKeybind = new KeyBinding("teal.gips.key.copynbt", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "teal.gips");
     public static final KeyBinding GetNameKeybind = new KeyBinding("teal.gips.key.copyname", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Y, "teal.gips");
     public static final File gipsFolder = new File("./gips/");
@@ -66,8 +67,8 @@ public class Gips implements ClientModInitializer {
         KeyBindingHelper.registerKeyBinding(GetNameKeybind);
 
         ClientTickEvents.END_CLIENT_TICK.register(Gips::tickEvent);
-
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher,commandRegistryAccess) -> dispatcher.register(
+        
+        ClientCommandManager.DISPATCHER.register(
                 ClientCommandManager.literal("gips").then(
                         ClientCommandManager.literal("viewnbt")
                                 .executes(Gips::getNbt)
@@ -87,19 +88,19 @@ public class Gips implements ClientModInitializer {
                                 .executes(Gips::dumpNbt)
                 ).then(
                         ClientCommandManager.literal("give")
-                                .then(ClientCommandManager.argument("item", ItemStackArgumentType.itemStack(commandRegistryAccess))
+                                .then(ClientCommandManager.argument("item", ItemStackArgumentType.itemStack())
                                         .executes(Gips::giveItem)
                                         .then(ClientCommandManager.argument("count", IntegerArgumentType.integer(1, 64))
                                                 .executes(Gips::giveItem)
                                         )
                                 )
                 )
-        ));
+        );
     }
 
     private static int giveItem(CommandContext<FabricClientCommandSource> context) throws CommandSyntaxException {
-        if (minecraft.player == null) throw new CommandException(Text.literal("Could not get player."));
-        if (!minecraft.player.isCreative()) throw new CommandException(Text.literal("You need to be in creative mode."));
+        if (minecraft.player == null) throw new CommandException(new LiteralText("Could not get player."));
+        if (!minecraft.player.isCreative()) throw new CommandException(new LiteralText("You need to be in creative mode."));
         int amount = 1;
         try {
             amount = IntegerArgumentType.getInteger(context, "count");
@@ -109,32 +110,32 @@ public class Gips implements ClientModInitializer {
         for(int slot = 0; slot < 9; slot++) {
             if(!minecraft.player.getInventory().getStack(slot).isEmpty()) continue;
             minecraft.player.networkHandler.sendPacket(new CreativeInventoryActionC2SPacket(slot + 36, ItemStackArgumentType.getItemStackArgument(context, "item").createStack(amount, true)));
-            minecraft.player.sendMessage(Text.literal("Created item."), true);
+            minecraft.player.sendMessage(new LiteralText("Created item."), true);
             return 0;
         }
-        throw new CommandException(Text.literal("Your hotbar is full."));
+        throw new CommandException(new LiteralText("Your hotbar is full."));
     }
 
     private static int dumpNbt(CommandContext<FabricClientCommandSource> context) {
         dumpNbt = !dumpNbt;
-        context.getSource().getPlayer().sendMessage(Text.literal("Turned NBT dumping ").append(Text.literal(dumpNbt ? "ON" : "OFF").formatted(dumpNbt ? Formatting.GREEN : Formatting.RED, Formatting.BOLD)), true);
+        context.getSource().getPlayer().sendMessage(new LiteralText("Turned NBT dumping ").append(new LiteralText(dumpNbt ? "ON" : "OFF").formatted(dumpNbt ? Formatting.GREEN : Formatting.RED, Formatting.BOLD)), true);
         return 0;
     }
 
     private static int setNbt(CommandContext<FabricClientCommandSource> context) {
-        if (minecraft.player == null) throw new CommandException(Text.literal("Could not get player."));
-        if (!minecraft.player.isCreative()) throw new CommandException(Text.literal("You need to be in creative mode."));
+        if (minecraft.player == null) throw new CommandException(new LiteralText("Could not get player."));
+        if (!minecraft.player.isCreative()) throw new CommandException(new LiteralText("You need to be in creative mode."));
         ItemStack heldItem = minecraft.player.getMainHandStack();
-        if (heldItem.isEmpty()) throw new CommandException(Text.literal("You need to hold an item."));
+        if (heldItem.isEmpty()) throw new CommandException(new LiteralText("You need to hold an item."));
         heldItem.setNbt(NbtCompoundArgumentType.getNbtCompound(context, "data"));
-        context.getSource().getPlayer().sendMessage(Text.literal("Modified item."), true);
+        context.getSource().getPlayer().sendMessage(new LiteralText("Modified item."), true);
         return 0;
     }
 
     private static int getNbt(CommandContext<FabricClientCommandSource> context) {
-        if (minecraft.player == null) throw new CommandException(Text.literal("Could not get player."));
+        if (minecraft.player == null) throw new CommandException(new LiteralText("Could not get player."));
         ItemStack heldItem = minecraft.player.getMainHandStack();
-        if (heldItem.isEmpty()) throw new CommandException(Text.literal("You need to hold an item."));
+        if (heldItem.isEmpty()) throw new CommandException(new LiteralText("You need to hold an item."));
         boolean copy = false;
         try {
             copy = BoolArgumentType.getBool(context, "copy");
@@ -153,15 +154,15 @@ public class Gips implements ClientModInitializer {
         } catch (IllegalArgumentException IAE) {
 
         } catch (CommandSyntaxException e) {
-            throw new CommandException(Text.literal("Invalid NBT Path."));
+            throw new CommandException(new LiteralText("Invalid NBT Path."));
         }
 
         if(copy) {
             setClipboard(nbt.asString());
 
-            context.getSource().getPlayer().sendMessage(Text.literal("Copied NBT to clipboard."), true);
+            context.getSource().getPlayer().sendMessage(new LiteralText("Copied NBT to clipboard."), true);
         } else {
-            MutableText msg = Text.literal("Properties of ").append(heldItem.getName()).append("\n");
+            MutableText msg = new LiteralText("Properties of ").append(heldItem.getName()).append("\n");
             msg.append(NbtHelper.toPrettyPrintedText(nbt));
 
             context.getSource().getPlayer().sendMessage(msg, false);
@@ -182,7 +183,7 @@ public class Gips implements ClientModInitializer {
                 Vec3d vec3d2 = entity.getRotationVec(1.0F).multiply(50.0F);
                 Vec3d vec3d3 = vec3d.add(vec3d2);
                 Box box = entity.getBoundingBox().stretch(vec3d2).expand(1.0D);
-                Predicate<Entity> predicate = (entityx) -> !entityx.isSpectator() && entityx.canHit();
+                Predicate<Entity> predicate = (entityx) -> !entityx.isSpectator() && entityx.collides();
                 EntityHitResult entityHitResult = ProjectileUtil.raycast(entity, vec3d, vec3d3, box, predicate, 50*50);
                 if (entityHitResult != null && !(vec3d.squaredDistanceTo(entityHitResult.getPos()) > (double)50*50)) entityHit = entityHitResult.getEntity();
                 if(entityHit != null) {
@@ -222,9 +223,7 @@ public class Gips implements ClientModInitializer {
                     BlockEntity blockEntity = client.world.getBlockEntity(blockPos);
                     NbtCompound nbt = new NbtCompound();
                     if (blockEntity != null) {
-                        ItemStack is = blockEntity.getCachedState().getBlock().asItem().getDefaultStack();
-                        client.addBlockEntityNbt(is, blockEntity);
-                        nbt = is.getOrCreateNbt();
+                        nbt = client.addBlockEntityNbt(blockEntity.getCachedState().getBlock().asItem().getDefaultStack(), blockEntity).getOrCreateNbt();
                         // Get rid of the lore
                         if(nbt.contains("display")) nbt.remove("display");
                     }
