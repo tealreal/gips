@@ -1,8 +1,10 @@
 package teal.gips;
 
-import net.minecraft.client.gui.DrawContext;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.toast.Toast;
 import net.minecraft.client.toast.ToastManager;
+import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.text.Text;
@@ -28,20 +30,21 @@ public class GipsToast implements Toast {
     }
 
     @Override
-    public Visibility draw(DrawContext context, ToastManager manager, long startTime) {
-        context.drawTexture(TEXTURE, 0, 0, 0, 0, this.getWidth(), this.getHeight());
+    public Visibility draw(MatrixStack matrices, ToastManager manager, long startTime) {
+        RenderSystem.setShaderTexture(0, TEXTURE);
+        DrawableHelper.drawTexture(matrices, 0, 0, 0, 0, this.getWidth(), this.getHeight());
         if(message2 == null) {
-            context.drawText(manager.getClient().textRenderer, message, 30, 12, 0xFFFFFF, false);
+            manager.getClient().textRenderer.draw(matrices, message, 30.0f, 12.0f, 0xFFFFFF);
         } else {
             // It's easier to hard code these values than to calculate the fucking mass of the sun.
-            context.drawText(manager.getClient().textRenderer, message, 30, 7, 0xFFFFFF, false);
-            context.drawText(manager.getClient().textRenderer, message2, 30, 17, 0xFFFFFF, false);
+            manager.getClient().textRenderer.draw(matrices, message, 30.0f, 7.5f, 0xFFFFFF);
+            manager.getClient().textRenderer.draw(matrices, message2, 30.0f, 16.5f, 0xFFFFFF);
         }
         ItemStack itemStack = (this.fail ? Items.ENCHANTED_BOOK : Items.KNOWLEDGE_BOOK).getDefaultStack();
-        context.getMatrices().push();
-        context.getMatrices().scale(0.6f, 0.6f, 1.0f);
-        context.getMatrices().pop();
-        context.drawItemWithoutEntity(itemStack, 8, 8);
+        matrices.push();
+        matrices.scale(0.6f, 0.6f, 1.0f);
+        matrices.pop();
+        manager.getClient().getItemRenderer().renderInGui(matrices, itemStack, 8, 8);
 
         return (double)(startTime) >= 1000.0 * manager.getNotificationDisplayTimeMultiplier() ? Toast.Visibility.HIDE : Toast.Visibility.SHOW;
     }
