@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "teal.gips.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "ChatScreenMixin",
+    "HandledScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

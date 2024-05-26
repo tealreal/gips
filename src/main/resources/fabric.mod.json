@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "gips",
+  "version": "${version}",
+  "name": "gips",
+  "description": "Utility mod focused on revealing the NBT of items in survival mode.",
+  "authors": [
+    "teal"
+  ],
+  "contact": {
+    "homepage": "https://github.com/tealreal/gips"
+  },
+  "license": "GPL-3.0",
+  "icon": "assets/gips/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "teal.gips.Gips"
+    ]
+  },
+  "mixins": [
+    "gips.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": ">=${fabric_version}",
+    "minecraft": "~${minecraft_version}"
+  },
+  "accessWidener": "gips.accesswidener"
+}
