@@ -1,6 +1,6 @@
 package teal.gips;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.client.toast.Toast;
 import net.minecraft.client.toast.ToastManager;
 import net.minecraft.item.ItemStack;
@@ -29,7 +29,7 @@ public class GipsToast implements Toast {
     @Override
     public Visibility draw(ToastManager manager, long startTime) {
         manager.getGame().getTextureManager().bindTexture(TOASTS_TEX);
-        RenderSystem.color3f(1.0F, 1.0F, 1.0F);
+        GlStateManager.color3f(1.0F, 1.0F, 1.0F);
         manager.blit(0, 0, 0, 0, 160, 32);
         if(message2 == null) {
             manager.getGame().textRenderer.draw(message, 30.0f, 12.0f, 0xFFFFFF);
@@ -39,9 +39,9 @@ public class GipsToast implements Toast {
             manager.getGame().textRenderer.draw(message2, 30.0f, 16.5f, 0xFFFFFF);
         }
         ItemStack itemStack = (this.fail ? Items.ENCHANTED_BOOK : Items.KNOWLEDGE_BOOK).getStackForRender();
-        RenderSystem.pushMatrix();
-        RenderSystem.scalef(0.6F, 0.6F, 1.0F);
-        RenderSystem.popMatrix();
+        GlStateManager.pushMatrix();
+        GlStateManager.scalef(0.6F, 0.6F, 1.0F);
+        GlStateManager.popMatrix();
         manager.getGame().getItemRenderer().renderGuiItem(itemStack, 8, 8);
 
         return (double)(startTime) >= 1000.0 ? Visibility.HIDE : Visibility.SHOW;

@@ -16,6 +16,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.options.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.command.CommandException;
+import net.minecraft.command.arguments.BlockArgumentParser;
 import net.minecraft.command.arguments.ItemStackArgumentType;
 import net.minecraft.command.arguments.NbtCompoundTagArgumentType;
 import net.minecraft.command.arguments.NbtPathArgumentType;
@@ -41,7 +42,6 @@ import net.minecraft.util.math.Vec3d;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.File;
-import java.util.function.Predicate;
 
 @Environment(EnvType.CLIENT)
 public class Gips implements ClientModInitializer {
@@ -171,20 +171,19 @@ public class Gips implements ClientModInitializer {
 
     private static void tickEvent(MinecraftClient client) {
         boolean gNBT = GetNBTKeybind.wasPressed();
-        boolean ALT = InputUtil.isKeyPressed(client.getWindow().getHandle(), GLFW.GLFW_KEY_LEFT_ALT);
+        boolean ALT = InputUtil.isKeyPressed(client.window.getHandle(), GLFW.GLFW_KEY_LEFT_ALT);
         if(gNBT) {
             Entity entity = minecraft.getCameraEntity();
             if(entity != null) {
                 HitResult blockHit = entity.rayTrace(50.0D, 0.0F, true);
-                Entity entityHit = null;
-                Vec3d vec3d = new Vec3d(entity.getX(), entity.getEyeY(), entity.getZ());
-                Vec3d vec3d2 = entity.getRotationVec(1.0F).multiply(50.0F);
-                Vec3d vec3d3 = vec3d.add(vec3d2);
-                Box box = entity.getBoundingBox().stretch(vec3d2).expand(1.0D);
-                Predicate<Entity> predicate = (entityx) -> !entityx.isSpectator() && entityx.collides();
-                EntityHitResult entityHitResult = ProjectileUtil.rayTrace(entity, vec3d, vec3d3, box, predicate, 50*50);
-                if (entityHitResult != null && !(vec3d.squaredDistanceTo(entityHitResult.getPos()) > (double)50*50)) entityHit = entityHitResult.getEntity();
-                if(entityHit != null) {
+                HitResult entityHit  = entity.rayTrace(50.0F, 1.0F, false);
+                Vec3d vec3d = entity.getCameraPosVec(1.0F);
+                Vec3d vec3d2 = entity.getRotationVec(1.0F);
+                Vec3d vec3d3 = vec3d.add(vec3d2.x * 50, vec3d2.y * 50, vec3d2.z * 50);
+                Box box = entity.getBoundingBox().stretch(vec3d2.multiply(50)).expand(1.0D, 1.0D, 1.0D);
+                double e = entityHit != null ? entityHit.getPos().squaredDistanceTo(vec3d) : 50*50;
+                EntityHitResult entityHitResult = ProjectileUtil.rayTrace(entity, vec3d, vec3d3, box, (entityx) -> !entityx.isSpectator() && entityx.collides(), e);
+                if(entityHitResult != null && vec3d.squaredDistanceTo(entityHitResult.getPos()) < 50*50) {
                     CompoundTag nbt = new CompoundTag();
                     CompoundTag ET = NbtPredicate.entityToTag(entityHitResult.getEntity());
                     ET.putString("id", EntityType.getId(entityHitResult.getEntity().getType()).toString());
