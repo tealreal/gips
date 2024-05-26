@@ -1,19 +1,19 @@
 package teal.gips.mixin;
 
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.ingame.ContainerScreen;
 import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.resource.language.I18n;
+import net.minecraft.container.Container;
+import net.minecraft.container.PlayerContainer;
+import net.minecraft.container.Slot;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.screen.PlayerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.text.LiteralText;
 import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableText;
 import net.minecraft.util.Formatting;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
@@ -37,11 +37,11 @@ import java.util.stream.Collectors;
 
 import static teal.gips.Gips.*;
 
-@Mixin(HandledScreen.class)
-public abstract class HandledScreenMixin <T extends ScreenHandler> extends Screen {
+@Mixin(ContainerScreen.class)
+public abstract class HandledScreenMixin <T extends Container> extends Screen {
 
     @Shadow @Nullable protected Slot focusedSlot;
-    @Shadow @Final protected T handler;
+    @Shadow @Final protected T container;
     @Shadow protected int y;
 
     @Shadow @Final protected PlayerInventory playerInventory;
@@ -57,18 +57,15 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
             at = @At("TAIL")
     )
     protected void init(CallbackInfo ci) {
-        final int offsetY = handler instanceof CreativeInventoryScreen.CreativeScreenHandler ? -30 : 0;
+        final int offsetY = container instanceof CreativeInventoryScreen.CreativeContainer ? -30 : 0;
         final int centerX = (this.width/2) - (65/2);
-        addButton(new ButtonWidget(centerX - 65, y - 18 + offsetY, 60, 14, new TranslatableText("teal.gips.key.copynbt"), b -> copyNBT(getContainerNBT(false).get(0))));
-        addButton(new ButtonWidget(centerX, y - 18 + offsetY, 65, 14, new TranslatableText("teal.gips.key.copyname"), b -> copyName(title)));
-        addButton(new ButtonWidget(centerX + 70, y - 18 + offsetY, 60, 14, new TranslatableText("teal.gips.dumpnbt"), this::writeToFile));
+        addButton(new ButtonWidget(centerX - 65, y - 18 + offsetY, 60, 14, I18n.translate("teal.gips.key.copynbt"), b -> copyNBT(getContainerNBT(false).get(0))));
+        addButton(new ButtonWidget(centerX, y - 18 + offsetY, 65, 14, I18n.translate("teal.gips.key.copyname"), b -> copyName(title)));
+        addButton(new ButtonWidget(centerX + 70, y - 18 + offsetY, 60, 14, I18n.translate("teal.gips.dumpnbt"), this::writeToFile));
     }
 
-    @Inject(
-            method = "onClose",
-            at = @At("TAIL")
-    )
-    public void onClose(CallbackInfo ci) {
+    @Override
+    public void onClose() {
         writeToFile(null);
     }
 
@@ -78,8 +75,8 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
             if (dumpNbt) {
                 if (!gipsFolder.exists()) gipsFolder.mkdirs();
 
-                List<NbtCompound> splitBETs = getContainerNBT(true);
-                NbtList playerInventory = client.player.inventory.writeNbt(new NbtList());
+                List<CompoundTag> splitBETs = getContainerNBT(true);
+                ListTag playerInventory = minecraft.player.inventory.serialize(new ListTag());
 
                 String title = this.getTitle().getString();
                 String inventory = this.playerInventory.getDisplayName().getString();
@@ -96,55 +93,55 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
                 fileWriter2.write(playerInventory.asString());
                 fileWriter2.close();
 
-                if (b != null && client != null) {
-                    client.getToastManager().add(new GipsToast("Dumped NBT", false));
+                if (b != null && minecraft != null) {
+                    minecraft.getToastManager().add(new GipsToast("Dumped NBT", false));
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
             if(b == null) {
-                minecraft.player.sendMessage(new LiteralText("Couldn't dump NBT to file, see logs for details.").formatted(Formatting.RED), false);
+                minecraft.player.addChatMessage(new LiteralText("Couldn't dump NBT to file, see logs for details.").formatted(Formatting.RED), false);
             } else {
-                b.setMessage(new LiteralText("Dump NBT").formatted(Formatting.RED));
+                b.setMessage(Formatting.RED + "Dump NBT");
             }
         }
     }
 
     @Unique
-    private List<NbtCompound> getContainerNBT(boolean split) {
-        boolean isCreativeScreen = handler instanceof CreativeInventoryScreen.CreativeScreenHandler;
-        boolean isSurvivalScreen = handler instanceof PlayerScreenHandler;
+    private List<CompoundTag> getContainerNBT(boolean split) {
+        boolean isCreativeScreen = container instanceof CreativeInventoryScreen.CreativeContainer;
+        boolean isSurvivalScreen = container instanceof PlayerContainer;
         final int offsetSlots = isCreativeScreen ? 9*3 : 0;
-        List<ItemStack> itemStacks = handler.slots.stream().map(Slot::getStack).collect(Collectors.toList());
+        List<ItemStack> itemStacks = container.slots.stream().map(Slot::getStack).collect(Collectors.toList());
         if (isCreativeScreen) {
             // 47 = the 9*4 slots of inventory space, 5 of armor + shield, 5 for the invisible crafting, and 1 for destroy item(?)
             // 47 = 36                               +5                   +5                                +1
             if (itemStacks.size() != 47) {
-                itemStacks = ((CreativeInventoryScreen.CreativeScreenHandler) this.handler).itemList;
+                itemStacks = ((CreativeInventoryScreen.CreativeContainer) this.container).itemList;
             }
         } else if (!isSurvivalScreen) {
             int sliceIndex = itemStacks.size() - FUCKINGVALUE + offsetSlots;
             itemStacks = itemStacks.subList(0, sliceIndex);
         }
-        List<NbtCompound> splitBETs = new ArrayList<>();
-        List<NbtList> splitItems = new ArrayList<>();
-        splitItems.add(new NbtList());
+        List<CompoundTag> splitBETs = new ArrayList<>();
+        List<ListTag> splitItems = new ArrayList<>();
+        splitItems.add(new ListTag());
         for(int j=0; j < itemStacks.size(); j++) {
             int index = split ? (int) Math.floor((double)j/27) : 0;
             ItemStack itemStack = itemStacks.get(j);
             if(itemStack.isEmpty()) continue;
-            NbtCompound nbtCompound = itemStack.writeNbt(new NbtCompound());
+            CompoundTag nbtCompound = itemStack.toTag(new CompoundTag());
             nbtCompound.putInt("Slot", split ? j%27 : j);
             if(splitItems.size()-1 < index) {
-                splitItems.add(new NbtList());
+                splitItems.add(new ListTag());
             }
-            NbtList Items = splitItems.get(index);
+            ListTag Items = splitItems.get(index);
             Items.add(nbtCompound);
             splitItems.set(index, Items);
         }
-        for(NbtList Items : splitItems) {
-            NbtCompound nbt = new NbtCompound();
-            NbtCompound BET = new NbtCompound();
+        for(ListTag Items : splitItems) {
+            CompoundTag nbt = new CompoundTag();
+            CompoundTag BET = new CompoundTag();
             BET.put("Items", Items);
             BET.putString("CustomName", Text.Serializer.toJson(title));
             nbt.put("BlockEntityTag", BET);

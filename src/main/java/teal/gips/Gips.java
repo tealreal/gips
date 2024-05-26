@@ -7,29 +7,29 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v1.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.SkullBlockEntity;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.options.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.command.CommandException;
-import net.minecraft.command.argument.ItemStackArgumentType;
-import net.minecraft.command.argument.NbtCompoundArgumentType;
-import net.minecraft.command.argument.NbtPathArgumentType;
+import net.minecraft.command.arguments.ItemStackArgumentType;
+import net.minecraft.command.arguments.NbtCompoundTagArgumentType;
+import net.minecraft.command.arguments.NbtPathArgumentType;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.entity.ProjectileUtil;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
 import net.minecraft.predicate.NbtPredicate;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.LiteralText;
-import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.hit.BlockHitResult;
@@ -53,7 +53,7 @@ public class Gips implements ClientModInitializer {
     public static boolean dumpNbt = true;
 
     // Prevents spam by making sure the element isn't saved multiple times and creating 10 billion toasts.
-    private static NbtElement nbtCache;
+    private static Tag nbtCache;
 
     private static void setClipboard(String contents) {
         minecraft.keyboard.setClipboard(contents);
@@ -65,38 +65,38 @@ public class Gips implements ClientModInitializer {
         KeyBindingHelper.registerKeyBinding(GetNameKeybind);
 
         ClientTickEvents.END_CLIENT_TICK.register(Gips::tickEvent);
-        
-        ClientCommandManager.DISPATCHER.register(
-                ClientCommandManager.literal("gips").then(
-                        ClientCommandManager.literal("viewnbt")
+
+        CommandRegistrationCallback.EVENT.register((dispatcher, dedicated) -> dispatcher.register(
+                CommandManager.literal("gips").then(
+                        CommandManager.literal("viewnbt")
                                 .executes(Gips::getNbt)
-                                .then(ClientCommandManager.argument("copy", BoolArgumentType.bool())
+                                .then(CommandManager.argument("copy", BoolArgumentType.bool())
                                         .executes(Gips::getNbt)
-                                        .then(ClientCommandManager.argument("path", NbtPathArgumentType.nbtPath())
+                                        .then(CommandManager.argument("path", NbtPathArgumentType.nbtPath())
                                                 .executes(Gips::getNbt)
                                         )
                                 )
                 ).then(
-                        ClientCommandManager.literal("modifynbt")
-                                .then(ClientCommandManager.argument("data", NbtCompoundArgumentType.nbtCompound())
+                        CommandManager.literal("modifynbt")
+                                .then(CommandManager.argument("data", NbtCompoundTagArgumentType.nbtCompound())
                                         .executes(Gips::setNbt)
                                 )
                 ).then(
-                        ClientCommandManager.literal("dump")
+                        CommandManager.literal("dump")
                                 .executes(Gips::dumpNbt)
                 ).then(
-                        ClientCommandManager.literal("give")
-                                .then(ClientCommandManager.argument("item", ItemStackArgumentType.itemStack())
+                        CommandManager.literal("give")
+                                .then(CommandManager.argument("item", ItemStackArgumentType.itemStack())
                                         .executes(Gips::giveItem)
-                                        .then(ClientCommandManager.argument("count", IntegerArgumentType.integer(1, 64))
+                                        .then(CommandManager.argument("count", IntegerArgumentType.integer(1, 64))
                                                 .executes(Gips::giveItem)
                                         )
                                 )
                 )
-        );
+        ));
     }
 
-    private static int giveItem(CommandContext<FabricClientCommandSource> context) throws CommandSyntaxException {
+    private static int giveItem(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         if (minecraft.player == null) throw new CommandException(new LiteralText("Could not get player."));
         if (!minecraft.player.isCreative()) throw new CommandException(new LiteralText("You need to be in creative mode."));
         int amount = 1;
@@ -106,31 +106,31 @@ public class Gips implements ClientModInitializer {
 
         }
         for(int slot = 0; slot < 9; slot++) {
-            if(!minecraft.player.inventory.getStack(slot).isEmpty()) continue;
+            if(!minecraft.player.inventory.getInvStack(slot).isEmpty()) continue;
             minecraft.player.networkHandler.sendPacket(new CreativeInventoryActionC2SPacket(slot + 36, ItemStackArgumentType.getItemStackArgument(context, "item").createStack(amount, true)));
-            minecraft.player.sendMessage(new LiteralText("Created item."), true);
+            minecraft.player.addChatMessage(new LiteralText("Created item."), true);
             return 0;
         }
         throw new CommandException(new LiteralText("Your hotbar is full."));
     }
 
-    private static int dumpNbt(CommandContext<FabricClientCommandSource> context) {
+    private static int dumpNbt(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         dumpNbt = !dumpNbt;
-        context.getSource().getPlayer().sendMessage(new LiteralText("Turned NBT dumping ").append(new LiteralText(dumpNbt ? "ON" : "OFF").formatted(dumpNbt ? Formatting.GREEN : Formatting.RED, Formatting.BOLD)), true);
+        context.getSource().getPlayer().addChatMessage(new LiteralText("Turned NBT dumping ").append(new LiteralText(dumpNbt ? "ON" : "OFF").formatted(dumpNbt ? Formatting.GREEN : Formatting.RED, Formatting.BOLD)), true);
         return 0;
     }
 
-    private static int setNbt(CommandContext<FabricClientCommandSource> context) {
+    private static int setNbt(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         if (minecraft.player == null) throw new CommandException(new LiteralText("Could not get player."));
         if (!minecraft.player.isCreative()) throw new CommandException(new LiteralText("You need to be in creative mode."));
         ItemStack heldItem = minecraft.player.getMainHandStack();
         if (heldItem.isEmpty()) throw new CommandException(new LiteralText("You need to hold an item."));
-        heldItem.setTag(NbtCompoundArgumentType.getNbtCompound(context, "data"));
-        context.getSource().getPlayer().sendMessage(new LiteralText("Modified item."), true);
+        heldItem.setTag(NbtCompoundTagArgumentType.getCompoundTag(context, "data"));
+        context.getSource().getPlayer().addChatMessage(new LiteralText("Modified item."), true);
         return 0;
     }
 
-    private static int getNbt(CommandContext<FabricClientCommandSource> context) {
+    private static int getNbt(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
         if (minecraft.player == null) throw new CommandException(new LiteralText("Could not get player."));
         ItemStack heldItem = minecraft.player.getMainHandStack();
         if (heldItem.isEmpty()) throw new CommandException(new LiteralText("You need to hold an item."));
@@ -142,7 +142,7 @@ public class Gips implements ClientModInitializer {
         }
 
         NbtPathArgumentType.NbtPath path;
-        NbtElement nbt = heldItem.getOrCreateTag();
+        Tag nbt = heldItem.getOrCreateTag();
 
         try {
             path = context.getArgument("path", NbtPathArgumentType.NbtPath.class);
@@ -158,12 +158,12 @@ public class Gips implements ClientModInitializer {
         if(copy) {
             setClipboard(nbt.asString());
 
-            context.getSource().getPlayer().sendMessage(new LiteralText("Copied NBT to clipboard."), true);
+            context.getSource().getPlayer().addChatMessage(new LiteralText("Copied NBT to clipboard."), true);
         } else {
-            MutableText msg = new LiteralText("Properties of ").append(heldItem.getName()).append("\n");
+            Text msg = new LiteralText("Properties of ").append(heldItem.getName()).append("\n");
             msg.append(nbt.asString());
 
-            context.getSource().getPlayer().sendMessage(msg, false);
+            context.getSource().getPlayer().addChatMessage(msg, false);
         }
 
         return 0;
@@ -175,18 +175,18 @@ public class Gips implements ClientModInitializer {
         if(gNBT) {
             Entity entity = minecraft.getCameraEntity();
             if(entity != null) {
-                HitResult blockHit = entity.raycast(50.0D, 0.0F, true);
+                HitResult blockHit = entity.rayTrace(50.0D, 0.0F, true);
                 Entity entityHit = null;
                 Vec3d vec3d = new Vec3d(entity.getX(), entity.getEyeY(), entity.getZ());
                 Vec3d vec3d2 = entity.getRotationVec(1.0F).multiply(50.0F);
                 Vec3d vec3d3 = vec3d.add(vec3d2);
                 Box box = entity.getBoundingBox().stretch(vec3d2).expand(1.0D);
                 Predicate<Entity> predicate = (entityx) -> !entityx.isSpectator() && entityx.collides();
-                EntityHitResult entityHitResult = ProjectileUtil.raycast(entity, vec3d, vec3d3, box, predicate, 50*50);
+                EntityHitResult entityHitResult = ProjectileUtil.rayTrace(entity, vec3d, vec3d3, box, predicate, 50*50);
                 if (entityHitResult != null && !(vec3d.squaredDistanceTo(entityHitResult.getPos()) > (double)50*50)) entityHit = entityHitResult.getEntity();
                 if(entityHit != null) {
-                    NbtCompound nbt = new NbtCompound();
-                    NbtCompound ET = NbtPredicate.entityToNbt(entityHitResult.getEntity());
+                    CompoundTag nbt = new CompoundTag();
+                    CompoundTag ET = NbtPredicate.entityToTag(entityHitResult.getEntity());
                     ET.putString("id", EntityType.getId(entityHitResult.getEntity().getType()).toString());
                     if(!ALT) {
                         ET.remove("UUIDLeast");
@@ -197,8 +197,8 @@ public class Gips implements ClientModInitializer {
                         ET.remove("Dimension");
                     }
                     nbt.put("EntityTag", ET);
-                    if (client.player.hasPermissionLevel(2)) {
-                        final NbtCompound Fnbt = nbt;
+                    if (client.player.allowsPermissionLevel(2)) {
+                        final CompoundTag Fnbt = nbt;
                         client.getNetworkHandler().getDataQueryHandler().queryEntityNbt(entityHitResult.getEntity().getEntityId(), (nbtCompound) -> {
                             if(nbtCompound != null) {
                                 if(!ALT) {
@@ -219,16 +219,16 @@ public class Gips implements ClientModInitializer {
                 } else if(blockHit.getType() == HitResult.Type.BLOCK) {
                     BlockPos blockPos = ((BlockHitResult) blockHit).getBlockPos();
                     BlockEntity blockEntity = client.world.getBlockEntity(blockPos);
-                    NbtCompound nbt = new NbtCompound();
+                    CompoundTag nbt = new CompoundTag();
                     if (blockEntity != null) {
-                        nbt = client.addBlockEntityNbt(blockEntity.getCachedState().getBlock().asItem().getDefaultStack(), blockEntity).getOrCreateTag();
+                        nbt = client.addBlockEntityNbt(blockEntity.getCachedState().getBlock().asItem().getStackForRender(), blockEntity).getOrCreateTag();
                         // Get rid of the lore
                         if(nbt.contains("display")) nbt.remove("display");
                     }
-                    if (client.player.hasPermissionLevel(2) && !(blockEntity instanceof SkullBlockEntity)) {
+                    if (client.player.allowsPermissionLevel(2) && !(blockEntity instanceof SkullBlockEntity)) {
                         // Copy a detailed version if the server / integrated server allows
                         // Doesn't do anything if we don't have permission.
-                        final NbtCompound fNbt = nbt;
+                        final CompoundTag fNbt = nbt;
                         client.getNetworkHandler().getDataQueryHandler().queryBlockNbt(blockPos, (nbtCompound) -> {
                             // The compound doesn't come back wrapped in a BET so just overwrite it manually
                             if(nbtCompound != null) fNbt.put("BlockEntityTag", nbtCompound);
@@ -248,8 +248,8 @@ public class Gips implements ClientModInitializer {
         minecraft.getToastManager().add(new GipsToast("Copied stack name", "to clipboard!", false));
     }
 
-    public static void copyNBT(NbtElement nbt) {
-        if(nbt.equals(nbtCache) || (nbt instanceof NbtCompound && ((NbtCompound) nbt).isEmpty())) return;
+    public static void copyNBT(CompoundTag nbt) {
+        if(nbt.equals(nbtCache) || nbt.isEmpty()) return;
         nbtCache = nbt;
         Gips.setClipboard(nbt.asString());
         minecraft.getToastManager().add(new GipsToast("Copied NBT to clipboard!", false));
