@@ -31,8 +31,8 @@ public class GipsToast implements Toast {
 
     @Override
     public Visibility draw(MatrixStack matrices, ToastManager manager, long startTime) {
-        RenderSystem.setShaderTexture(0, TEXTURE);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        manager.getGame().getTextureManager().bindTexture(TEXTURE);
+        RenderSystem.color3f(1.0F, 1.0F, 1.0F);
         manager.drawTexture(matrices, 0, 0, 0, 0, this.getWidth(), this.getHeight());
         if(message2 == null) {
             manager.getGame().textRenderer.draw(matrices, message, 30.0f, 12.0f, 0xFFFFFF);

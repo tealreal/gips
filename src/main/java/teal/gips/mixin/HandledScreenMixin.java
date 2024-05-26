@@ -4,6 +4,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
@@ -32,6 +33,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static teal.gips.Gips.*;
 
@@ -39,10 +41,10 @@ import static teal.gips.Gips.*;
 public abstract class HandledScreenMixin <T extends ScreenHandler> extends Screen {
 
     @Shadow @Nullable protected Slot focusedSlot;
-    @Shadow @Final protected Text playerInventoryTitle;
     @Shadow @Final protected T handler;
     @Shadow protected int y;
 
+    @Shadow @Final protected PlayerInventory playerInventory;
     @Unique private static final int FUCKINGVALUE = 36;
     @Unique private static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
 
@@ -57,9 +59,9 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
     protected void init(CallbackInfo ci) {
         final int offsetY = handler instanceof CreativeInventoryScreen.CreativeScreenHandler ? -30 : 0;
         final int centerX = (this.width/2) - (65/2);
-        addDrawableChild(new ButtonWidget(centerX - 65, y - 18 + offsetY, 60, 14, new TranslatableText("teal.gips.key.copynbt"), b -> copyNBT(getContainerNBT(false).get(0))));
-        addDrawableChild(new ButtonWidget(centerX, y - 18 + offsetY, 65, 14, new TranslatableText("teal.gips.key.copyname"), b -> copyName(title)));
-        addDrawableChild(new ButtonWidget(centerX + 70, y - 18 + offsetY, 60, 14, new TranslatableText("teal.gips.dumpnbt"), this::writeToFile));
+        addButton(new ButtonWidget(centerX - 65, y - 18 + offsetY, 60, 14, new TranslatableText("teal.gips.key.copynbt"), b -> copyNBT(getContainerNBT(false).get(0))));
+        addButton(new ButtonWidget(centerX, y - 18 + offsetY, 65, 14, new TranslatableText("teal.gips.key.copyname"), b -> copyName(title)));
+        addButton(new ButtonWidget(centerX + 70, y - 18 + offsetY, 60, 14, new TranslatableText("teal.gips.dumpnbt"), this::writeToFile));
     }
 
     @Inject(
@@ -77,10 +79,10 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
                 if (!gipsFolder.exists()) gipsFolder.mkdirs();
 
                 List<NbtCompound> splitBETs = getContainerNBT(true);
-                NbtList playerInventory = client.player.getInventory().writeNbt(new NbtList());
+                NbtList playerInventory = client.player.inventory.writeNbt(new NbtList());
 
                 String title = this.getTitle().getString();
-                String inventory = this.playerInventoryTitle.getString();
+                String inventory = this.playerInventory.getDisplayName().getString();
                 String date = dateFormat.format(new Date());
                 for(int i=0; i < splitBETs.size(); i++) {
                     // Order of "best" name: Name of container -> "Inventory" -> Name of obfuscated class (though when modding it shows the deobfuscated class)
@@ -113,7 +115,7 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
         boolean isCreativeScreen = handler instanceof CreativeInventoryScreen.CreativeScreenHandler;
         boolean isSurvivalScreen = handler instanceof PlayerScreenHandler;
         final int offsetSlots = isCreativeScreen ? 9*3 : 0;
-        List<ItemStack> itemStacks = handler.slots.stream().map(Slot::getStack).toList();
+        List<ItemStack> itemStacks = handler.slots.stream().map(Slot::getStack).collect(Collectors.toList());
         if (isCreativeScreen) {
             // 47 = the 9*4 slots of inventory space, 5 of armor + shield, 5 for the invisible crafting, and 1 for destroy item(?)
             // 47 = 36                               +5                   +5                                +1
@@ -125,7 +127,8 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
             itemStacks = itemStacks.subList(0, sliceIndex);
         }
         List<NbtCompound> splitBETs = new ArrayList<>();
-        List<NbtList> splitItems = new ArrayList<>(List.of(new NbtList()));
+        List<NbtList> splitItems = new ArrayList<>();
+        splitItems.add(new NbtList());
         for(int j=0; j < itemStacks.size(); j++) {
             int index = split ? (int) Math.floor((double)j/27) : 0;
             ItemStack itemStack = itemStacks.get(j);
@@ -157,7 +160,7 @@ public abstract class HandledScreenMixin <T extends ScreenHandler> extends Scree
     public void keyPressedInject(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
         super.keyPressed(keyCode, scanCode, modifiers);
         if (focusedSlot != null) {
-            if (GetNBTKeybind.matchesKey(keyCode, scanCode)) copyNBT(focusedSlot.getStack().getOrCreateNbt());
+            if (GetNBTKeybind.matchesKey(keyCode, scanCode)) copyNBT(focusedSlot.getStack().getOrCreateTag());
             else if (GetNameKeybind.matchesKey(keyCode, scanCode)) copyName(focusedSlot.getStack().getName());
         }
     }

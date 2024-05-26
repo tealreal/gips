@@ -26,7 +26,6 @@ import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtHelper;
 import net.minecraft.network.packet.c2s.play.CreativeInventoryActionC2SPacket;
 import net.minecraft.predicate.NbtPredicate;
 import net.minecraft.text.LiteralText;
@@ -107,7 +106,7 @@ public class Gips implements ClientModInitializer {
 
         }
         for(int slot = 0; slot < 9; slot++) {
-            if(!minecraft.player.getInventory().getStack(slot).isEmpty()) continue;
+            if(!minecraft.player.inventory.getStack(slot).isEmpty()) continue;
             minecraft.player.networkHandler.sendPacket(new CreativeInventoryActionC2SPacket(slot + 36, ItemStackArgumentType.getItemStackArgument(context, "item").createStack(amount, true)));
             minecraft.player.sendMessage(new LiteralText("Created item."), true);
             return 0;
@@ -126,7 +125,7 @@ public class Gips implements ClientModInitializer {
         if (!minecraft.player.isCreative()) throw new CommandException(new LiteralText("You need to be in creative mode."));
         ItemStack heldItem = minecraft.player.getMainHandStack();
         if (heldItem.isEmpty()) throw new CommandException(new LiteralText("You need to hold an item."));
-        heldItem.setNbt(NbtCompoundArgumentType.getNbtCompound(context, "data"));
+        heldItem.setTag(NbtCompoundArgumentType.getNbtCompound(context, "data"));
         context.getSource().getPlayer().sendMessage(new LiteralText("Modified item."), true);
         return 0;
     }
@@ -143,13 +142,13 @@ public class Gips implements ClientModInitializer {
         }
 
         NbtPathArgumentType.NbtPath path;
-        NbtElement nbt = heldItem.getOrCreateNbt();
+        NbtElement nbt = heldItem.getOrCreateTag();
 
         try {
             path = context.getArgument("path", NbtPathArgumentType.NbtPath.class);
             // Pray and hope that the first element exists.
             // Apparently returns a singleton list, so it will always exist.
-            nbt = path.get(heldItem.getOrCreateNbt()).get(0);
+            nbt = path.get(heldItem.getOrCreateTag()).get(0);
         } catch (IllegalArgumentException IAE) {
 
         } catch (CommandSyntaxException e) {
@@ -162,7 +161,7 @@ public class Gips implements ClientModInitializer {
             context.getSource().getPlayer().sendMessage(new LiteralText("Copied NBT to clipboard."), true);
         } else {
             MutableText msg = new LiteralText("Properties of ").append(heldItem.getName()).append("\n");
-            msg.append(NbtHelper.toPrettyPrintedText(nbt));
+            msg.append(nbt.asString());
 
             context.getSource().getPlayer().sendMessage(msg, false);
         }
@@ -178,7 +177,7 @@ public class Gips implements ClientModInitializer {
             if(entity != null) {
                 HitResult blockHit = entity.raycast(50.0D, 0.0F, true);
                 Entity entityHit = null;
-                Vec3d vec3d = entity.getEyePos();
+                Vec3d vec3d = new Vec3d(entity.getX(), entity.getEyeY(), entity.getZ());
                 Vec3d vec3d2 = entity.getRotationVec(1.0F).multiply(50.0F);
                 Vec3d vec3d3 = vec3d.add(vec3d2);
                 Box box = entity.getBoundingBox().stretch(vec3d2).expand(1.0D);
@@ -200,7 +199,7 @@ public class Gips implements ClientModInitializer {
                     nbt.put("EntityTag", ET);
                     if (client.player.hasPermissionLevel(2)) {
                         final NbtCompound Fnbt = nbt;
-                        client.getNetworkHandler().getDataQueryHandler().queryEntityNbt(entityHitResult.getEntity().getId(), (nbtCompound) -> {
+                        client.getNetworkHandler().getDataQueryHandler().queryEntityNbt(entityHitResult.getEntity().getEntityId(), (nbtCompound) -> {
                             if(nbtCompound != null) {
                                 if(!ALT) {
                                     nbtCompound.remove("UUIDLeast");
@@ -222,7 +221,7 @@ public class Gips implements ClientModInitializer {
                     BlockEntity blockEntity = client.world.getBlockEntity(blockPos);
                     NbtCompound nbt = new NbtCompound();
                     if (blockEntity != null) {
-                        nbt = client.addBlockEntityNbt(blockEntity.getCachedState().getBlock().asItem().getDefaultStack(), blockEntity).getOrCreateNbt();
+                        nbt = client.addBlockEntityNbt(blockEntity.getCachedState().getBlock().asItem().getDefaultStack(), blockEntity).getOrCreateTag();
                         // Get rid of the lore
                         if(nbt.contains("display")) nbt.remove("display");
                     }
